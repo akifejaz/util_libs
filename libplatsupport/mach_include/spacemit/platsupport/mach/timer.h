@@ -1,5 +1,5 @@
 /*
- * Copyright 2025, 10xEngineers 
+ * Copyright 2025, 10xEngineers
  *
  * SPDX-License-Identifier: BSD-2-Clause
  */
@@ -16,11 +16,11 @@
 #define SLOW_CLOCK false
 
 #if SLOW_CLOCK
-  #define SPACEMIT_TIMER_TICKS_PER_SECOND  32768u
-  #define K1_TCCR_CS0_VALUE                0x1u   /* slow clock */
+#define SPACEMIT_TIMER_TICKS_PER_SECOND  32768u
+#define K1_TCCR_CS0_VALUE                0x1u   /* slow clock */
 #else
-  #define SPACEMIT_TIMER_TICKS_PER_SECOND  12800000u
-  #define K1_TCCR_CS0_VALUE                0x0u   /* fast clock */
+#define SPACEMIT_TIMER_TICKS_PER_SECOND  12800000u
+#define K1_TCCR_CS0_VALUE                0x0u   /* fast clock */
 #endif
 
 #define SPACEMIT_NUM_TIMERS 3
@@ -30,7 +30,7 @@
 #define APBC_TIMERx_CLK_RST_OFFSET  0x34u
 
 #define SPACEMIT_TIMERS_TCER_OFFSET          0x0   /* Timer Count Enable Register (TCER)   */
-#define SPACEMIT_TIMERS_TCMR_OFFSET          0x4   /* Timer Count Mode Register (TCMR)     */  
+#define SPACEMIT_TIMERS_TCMR_OFFSET          0x4   /* Timer Count Mode Register (TCMR)     */
 #define SPACEMIT_TIMERS_TCRR_OFFSET          0x8   /* Timer Count Restart Register (TCRR)  */
 #define SPACEMIT_TIMERS_TCCR_OFFSET          0xC   /* Timer Clock Control Register (TCCR)  */
 
@@ -86,4 +86,3 @@ void spacemit_timer_reset(spacemit_timer_t *timer);
 int spacemit_timer_set_timeout(spacemit_timer_t *timer, uint64_t ns, bool is_periodic);
 void spacemit_timer_disable_all(void *vaddr);
 void spacemit_timer_init(spacemit_timer_t *timer, void *vaddr, uint64_t channel);
-
