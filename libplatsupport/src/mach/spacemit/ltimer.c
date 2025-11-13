@@ -94,10 +94,12 @@ static int ltimer_handle_irq(void *data, ps_irq_t *irq)
         return EINVAL;
     }
 
-    /* check Timer Status reg */
-    uint8_t int_status = *(volatile uint32_t *)((uint8_t *)timers->timer[COUNTER_TIMER].vaddr + K1_TSR_OFS_CAL(COUNTER_TIMER));
+    /* Check Timer Status reg */
+    uint8_t int_status = timers->timer[COUNTER_TIMER].regs->tsr[COUNTER_TIMER];
     if (int_status & 0x1) {
-        spacemit_timer_handle_irq(&timers->timer[COUNTER_TIMER]);
+        /* Ack the Interrupt / clear the Interrupt*/
+        timers->timer[COUNTER_TIMER].regs->ticr[COUNTER_TIMER] |= (1u << 0);
+        timers->timer[COUNTER_TIMER].value_h += 1;
         event = LTIMER_OVERFLOW_EVENT;
     }
 
@@ -105,9 +107,11 @@ static int ltimer_handle_irq(void *data, ps_irq_t *irq)
         timers->user_callback(timers->user_callback_token, event);
     }
 
-    int_status = *(volatile uint32_t *)((uint8_t *)timers->timer[TIMEOUT_TIMER].vaddr + K1_TSR_OFS_CAL(TIMEOUT_TIMER));
+    int_status = timers->timer[TIMEOUT_TIMER].regs->tsr[TIMEOUT_TIMER];
     if (int_status & 0x1) {
-        spacemit_timer_handle_irq(&timers->timer[TIMEOUT_TIMER]);
+        /* Ack the Interrupt / clear the Interrupt*/
+        timers->timer[TIMEOUT_TIMER].regs->ticr[TIMEOUT_TIMER] |= (1u << 0);
+        timers->timer[TIMEOUT_TIMER].value_h += 1;
         event = LTIMER_TIMEOUT_EVENT;
     }
 
@@ -138,7 +142,7 @@ static int set_timeout(void *data, uint64_t ns, timeout_type_t type)
     case TIMEOUT_ABSOLUTE: {
         uint64_t time = spacemit_timer_get_time(&timers->timer[COUNTER_TIMER]);
         if (time >= ns) {
-            ZF_LOGE("Requested time %"PRIu64" earlier than current time %"PRIu64, ns, time);
+            ZF_LOGD("Requested time %"PRIu64" earlier than current time %"PRIu64, ns, time);
             return ETIME;
         }
         return spacemit_timer_set_timeout(&timers->timer[TIMEOUT_TIMER], ns - time, false);

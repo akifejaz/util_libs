@@ -7,7 +7,9 @@
 #pragma once
 #include <autoconf.h>
 
-/* The SpacemiT K1 SoC contains one PXA compatible UART. */
+/* The K1 SoC provides 10 UARTs (UART0–UART9), all are 16550A and 167502 compatible.
+ * Below UART refers to UART0, which is used as the serial console.
+ */
 
 enum chardev_id {
     UART0,

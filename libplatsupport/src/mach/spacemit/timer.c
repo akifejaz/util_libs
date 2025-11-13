@@ -15,20 +15,16 @@
 
 static void spacemit_timer_enable_clocks(spacemit_timer_t *timer)
 {
-    volatile uint32_t *base = (volatile uint32_t *)((uint8_t *)timer->vaddr + 0x1000); // APB_CLK_BASE
-	uint8_t fnclksel = K1_TCCR_CS0_VALUE;
-    uint32_t offset  = APBC_TIMERx_CLK_RST_OFFSET;
-    uint32_t read_value = 0x0;
-
-    read_value |= (1 << 0);
-	read_value |= (1 << 1);
-	read_value &= ~(1 << 2);
-
+    volatile uint32_t *base   = (volatile uint32_t *)((uint8_t *)timer->vaddr + 0x1000); // APB_CLK_BASE
+    uint32_t offset           = APBC_TIMERx_CLK_RST_OFFSET;
     uint32_t clk_select_shift = 0x4;
-    read_value &= ~(0x7u << clk_select_shift);    // clear bits
-    read_value |= ((fnclksel & 0x7u) << clk_select_shift);
+    uint32_t init_value       = 0x0;
 
-	*(base + offset/4) = read_value;
+    init_value |= (1 << 0);
+	init_value |= (1 << 1);
+    init_value |= K1_TCCR_CS0_VALUE << clk_select_shift;
+
+	*(base + offset/4) = init_value;
 }
 
 void spacemit_timer_enable(spacemit_timer_t *timer)
@@ -37,8 +33,7 @@ void spacemit_timer_enable(spacemit_timer_t *timer)
     assert(timer->regs);
     assert(timer->timer_n < SPACEMIT_NUM_TIMERS);
 
-    uint8_t n = timer->timer_n;
-    timer->regs->tmr_cnt_en  |= (1u << timer->timer_n);
+    timer->regs->tcer  |= (1u << timer->timer_n);
 }
 
 
@@ -47,22 +42,7 @@ void spacemit_timer_disable(spacemit_timer_t *timer)
     assert(timer);
 	assert(timer->regs);
 
-	timer->regs->tmr_cnt_en  &= ~(1u << timer->timer_n);
-}
-
-
-void spacemit_timer_handle_irq(spacemit_timer_t *timer)
-{
-    assert(timer);
-	assert(timer->regs);
-
-	uint8_t n = timer->timer_n;
-	timer->value_h += 1;
-
-	/* Clear the interrupt */
-	uint32_t *int_clear = (uint32_t *)((uint8_t *)timer->vaddr + K1_TICLR_OFS_CAL(n));
-	*(int_clear) |= (1u << n);    // using match register as timer number (E.g. Timer0 uses Match0, Timer1 uses Match1, etc)
-
+	timer->regs->tcer  &= ~(1u << timer->timer_n);
 }
 
 uint64_t spacemit_timer_get_time(spacemit_timer_t *timer)
@@ -72,12 +52,12 @@ uint64_t spacemit_timer_get_time(spacemit_timer_t *timer)
 
 	uint8_t n = timer->timer_n;
 	/* the timer value counts down from the load value */
-	uint64_t value_l = (uint64_t)(SPACEMIT_TIMER_MAX_TICKS - (*(uint32_t *)((uint8_t *)timer->vaddr + K1_TCNT_OFS_CAL(n))));
+	uint64_t value_l = (uint64_t)(SPACEMIT_TIMER_MAX_TICKS - (timer->regs->tcnt[n]));
 	uint64_t value_h = (uint64_t)timer->value_h;
 
 	/* Include unhandled interrupt in value_h */
-	uint32_t *status = (uint32_t *)((uint8_t *)timer->vaddr + K1_TSR_OFS_CAL(n));
-	if ((*status) & (1u << n)) {
+	uint32_t status = timer->regs->tsr[n];
+	if (status & 0x1) {
 		value_h += 1;
 	}
 
@@ -103,8 +83,7 @@ void spacemit_timer_reset(spacemit_timer_t *timer)
 	uint8_t n      = timer->timer_n;
 
 	/* Reset match register */
-	uint32_t *timer_match = (uint32_t *)((uint8_t *)timer->vaddr + K1_TMR_OFS_CAL(n, n));
-	*(timer_match ) = (uint32_t)(SPACEMIT_TIMER_MAX_TICKS);
+	timer->regs->tmr[n][0] = (uint32_t)(SPACEMIT_TIMER_MAX_TICKS);
 }
 
 int spacemit_timer_set_timeout(spacemit_timer_t *timer, uint64_t ns, bool is_periodic)
@@ -114,9 +93,9 @@ int spacemit_timer_set_timeout(spacemit_timer_t *timer, uint64_t ns, bool is_per
 	uint8_t n = timer->timer_n;
 
 	if (is_periodic) {
-		timer->regs->tmr_mode &= ~(1u << n);      /* Periodic mode */
+		timer->regs->tcmr &= ~(1u << n);      /* Periodic mode */
 	} else {
-		timer->regs->tmr_mode |= (1u << n);       /* Free-run mode */
+		timer->regs->tcmr |= (1u << n);       /* Free-run mode */
 	}
 
 	/* convert from nanoseconds to ticks */
@@ -131,13 +110,9 @@ int spacemit_timer_set_timeout(spacemit_timer_t *timer, uint64_t ns, bool is_per
 		return -EINVAL;
 	}
 
-	/* Set the match register */
-	uint32_t *timer_match = (uint32_t *)((uint8_t *)timer->vaddr + K1_TMR_OFS_CAL(n, n));
-	*(timer_match )       = (uint32_t)(num_ticks);
-
-	/* Enable interrupt */
-	uint32_t *int_enable = (uint32_t *)((uint8_t *)timer->vaddr + K1_TIER_OFS_CAL(n));
-	*(int_enable)        |= (1u << n);
+	/* Set the match register and enable interrupt */
+	timer->regs->tmr[n][0] = (uint32_t)(num_ticks);
+	timer->regs->tier[n]   |= (1u << 0);
 
 	spacemit_timer_enable(timer);
 
@@ -149,7 +124,7 @@ void spacemit_timer_disable_all(void *vaddr)
 {
     assert(vaddr);
 	volatile spacemit_timer_regs_t *regs = vaddr;
-	regs->tmr_cnt_en     &= ~(0x7u);
+	regs->tcer     &= ~(0x7u);
 
 }
 
@@ -162,22 +137,18 @@ void spacemit_timer_init(spacemit_timer_t *timer, void *vaddr, size_t n)
 	timer->vaddr = (uint32_t *)vaddr;
 
     spacemit_timer_enable_clocks(timer);
-    timer->regs      = vaddr;  /* all timers share same base addr */
-    timer->timer_n   = n;
-    timer->value_h   = 0;
-    timer->regs->tmr_cnt_en     &= ~(1u << n);
-    timer->regs->tmr_mode       |= (1u << n);       /* Free-run mode */
+    timer->regs           = vaddr;  /* all timers share same base addr */
+    timer->timer_n        = n;
+    timer->value_h        = 0;
+    timer->regs->tcer     &= ~(1u << n);
+    timer->regs->tcmr     |= (1u << n);       /* Free-run mode */
 
-    uint32_t clock_ctrl          = timer->regs->tmr_clock_ctrl;
-    clock_ctrl                   &= ~(3U << (n * 2));      /* Clear existing bits */
-    clock_ctrl                   |= (0x0 << (n * 2));      /* Set to fast clock (12.8 MHz) */
-    timer->regs->tmr_clock_ctrl  = clock_ctrl;
+    uint32_t clock_ctrl   = timer->regs->tccr;
+    clock_ctrl            &= ~(3U << (n * 2));      /* Clear existing bits */
+    clock_ctrl            |= (0x0 << (n * 2));      /* Set to fast clock (12.8 MHz) */
+    timer->regs->tccr     = clock_ctrl;
 
-	/* Set the match register */
-	uint32_t *timer_match = (uint32_t *)((uint8_t *)timer->vaddr + K1_TMR_OFS_CAL(n, n));
-	*(timer_match )       = (uint32_t)(SPACEMIT_TIMER_MAX_TICKS);
-
-	/* Enable interrupt */
-	uint32_t *int_enable = (uint32_t *)((uint8_t *)timer->vaddr + K1_TIER_OFS_CAL(n));
-	*(int_enable)        |= (1u << n);
+	/* Set the match register and enable interrupt */
+	timer->regs->tmr[n][0] = (uint32_t)(SPACEMIT_TIMER_MAX_TICKS);
+	timer->regs->tier[n]  |= (1u << 0);
 }
