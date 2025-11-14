@@ -12,9 +12,9 @@
  * is called TIMER1 and used for timeouts.
  */
 
-#include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <stddef.h>
 
 #define SPACEMIT_TIMER_BASE      0xD4014000
 #define APB_CLK_BASE             0xD4015000
@@ -34,6 +34,7 @@
 #define SPACEMIT_NUM_TIMERS 3
 #define SPACEMIT_TIMER_MAX_TICKS UINT32_MAX
 #define APBC_TIMERx_CLK_RST_OFFSET  0x34u
+#define SPACEMIT_TIMERS_CNT_OFFSET  0x90u
 
 typedef struct {
     uint32_t tcer;         // Timer Count Enable Register
@@ -45,12 +46,14 @@ typedef struct {
     uint32_t tplvr[4];     // Timer Preload Value Register (TPLVRx)
     uint32_t tplcr[4];     // Timer Preload Control Register (TPLCRx)
 
-    uint32_t tier[4];       // Timer Interrupt Enable Register (TIERx)
-    uint32_t ticr[4];       // Timer Interrupt Clear Register (TICLRx)
-    uint32_t tsr[4];        // Timer Status Register (TSRx)
+    uint32_t tier[4];      // Timer Interrupt Enable Register (TIERx)
+    uint32_t ticr[4];      // Timer Interrupt Clear Register (TICLRx)
+    uint32_t tsr[4];       // Timer Status Register (TSRx)
 
-    uint32_t tcnt[4];       // Timer Count Register (TCRx)
+    uint32_t tcnt[4];      // Timer Count Register (TCRx)
 } spacemit_timer_regs_t;
+static_assert(offsetof(spacemit_timer_regs_t, tcnt) == SPACEMIT_TIMERS_CNT_OFFSET,
+              "struct spacemit_timer_regs_t has incorrect layout");
 
 typedef struct {
     volatile spacemit_timer_regs_t *regs;

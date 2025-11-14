@@ -16,7 +16,7 @@
 static void spacemit_timer_enable_clocks(spacemit_timer_t *timer)
 {
     volatile uint32_t *base   = (volatile uint32_t *)((uint8_t *)timer->vaddr + 0x1000); // APB_CLK_BASE
-    uint32_t offset           = APBC_TIMERx_CLK_RST_OFFSET;
+    uint32_t offset           = APBC_TIMERx_CLK_RST_OFFSET / sizeof(uint32_t);
     uint32_t clk_select_shift = 0x4;
     uint32_t init_value       = 0x0;
 
@@ -24,7 +24,7 @@ static void spacemit_timer_enable_clocks(spacemit_timer_t *timer)
 	init_value |= (1 << 1);
     init_value |= K1_TCCR_CS0_VALUE << clk_select_shift;
 
-	*(base + offset/4) = init_value;
+	base[offset] = init_value;
 }
 
 void spacemit_timer_enable(spacemit_timer_t *timer)
@@ -64,11 +64,11 @@ uint64_t spacemit_timer_get_time(spacemit_timer_t *timer)
 	uint64_t value_ticks = (value_h << 32) | value_l;
 
 	/* convert from ticks to nanoseconds */
-	uint64_t value_whole_seconds = value_ticks / SPACEMIT_TIMER_TICKS_PER_SECOND;
-	uint64_t value_subsecond_ticks = value_ticks % SPACEMIT_TIMER_TICKS_PER_SECOND;
-	uint64_t value_subsecond_ns =
-		(value_subsecond_ticks * NS_IN_S) / SPACEMIT_TIMER_TICKS_PER_SECOND;
-	uint64_t value_ns = value_whole_seconds * NS_IN_S + value_subsecond_ns;
+	uint64_t whole_seconds = value_ticks / SPACEMIT_TIMER_TICKS_PER_SECOND;
+	uint64_t subsecond_ticks = value_ticks % SPACEMIT_TIMER_TICKS_PER_SECOND;
+	uint64_t subsecond_ns =
+		(subsecond_ticks * NS_IN_S) / SPACEMIT_TIMER_TICKS_PER_SECOND;
+	uint64_t value_ns = whole_seconds * NS_IN_S + subsecond_ns;
 
 	return value_ns;
 }
@@ -80,7 +80,7 @@ void spacemit_timer_reset(spacemit_timer_t *timer)
 
 	spacemit_timer_disable(timer);
 	timer->value_h = 0;
-	uint8_t n      = timer->timer_n;
+	uint8_t n = timer->timer_n;
 
 	/* Reset match register */
 	timer->regs->tmr[n][0] = (uint32_t)(SPACEMIT_TIMER_MAX_TICKS);
