@@ -89,7 +89,7 @@ static int ltimer_handle_irq(void *data, ps_irq_t *irq)
     long irq_number = irq->irq.number;
     ltimer_event_t event;
 
-    if (irq_number != irqs[0].irq.number) {
+    if (irq_number != irqs[0].irq.number && irq_number != irqs[1].irq.number) {
         ZF_LOGE("Invalid IRQ number %ld received.", irq_number);
         return EINVAL;
     }

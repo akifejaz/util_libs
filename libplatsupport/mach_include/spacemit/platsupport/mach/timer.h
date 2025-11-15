@@ -20,7 +20,7 @@
 #define APB_CLK_BASE             0xD4015000
 #define SPACEMIT_TIMER_SIZE      0x2000u
 #define SPACEMIT_TIMER0_IRQ      23u // timer0_1_irq: Timer 0 IRQ of Timer1
-#define SPACEMIT_TIMER1_IRQ      26u // timer1_1_irq: Timer 1 IRQ of Timer1
+#define SPACEMIT_TIMER1_IRQ      24u // timer0_2_irq: Timer 0 IRQ of Timer2
 #define SLOW_CLOCK false
 
 #if SLOW_CLOCK

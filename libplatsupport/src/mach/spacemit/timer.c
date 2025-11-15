@@ -51,8 +51,8 @@ uint64_t spacemit_timer_get_time(spacemit_timer_t *timer)
 	assert(timer->regs);
 
 	uint8_t n = timer->timer_n;
-	/* the timer value counts down from the load value */
-	uint64_t value_l = (uint64_t)(SPACEMIT_TIMER_MAX_TICKS - (timer->regs->tcnt[n]));
+	/* the timer counter counts up */
+	uint64_t value_l = (uint64_t)timer->regs->tcnt[n];
 	uint64_t value_h = (uint64_t)timer->value_h;
 
 	/* Include unhandled interrupt in value_h */
