@@ -10,11 +10,10 @@
 #include <platsupport/plat/serial.h>
 #include "../../chardev.h"
 
-#define UART_THR 0x00 /* UART Transmit Holding Register */
-#define UART_IER 0x04 /* UART Interrupt Enable Register */
-#define UART_IER_ERDAI BIT(0) /* Enable Received Data Available Interrupt */
-#define UART_LSR 0x14 /* UART Line Status Register */
-#define UART_LSR_THRE 0x20 /* Transmit Holding Register Empty */
+#define UART_THR 0x00         /* UART Transmit Holding Register */
+#define UART_LSR 0x14         /* UART Line Status Register */
+
+#define UART_LSR_TDRQ  BIT(5) /* Transmit Data Request */
 
 #define REG_PTR(base, off)     ((volatile uint32_t *)((base) + (off)))
 
@@ -30,7 +29,7 @@ int uart_putchar(ps_chardevice_t *d, int c)
         uart_putchar(d, '\r');
     }
 
-    while ((*REG_PTR(d->vaddr, UART_LSR) & UART_LSR_THRE) == 0);
+    while ((*REG_PTR(d->vaddr, UART_LSR) & UART_LSR_TDRQ) == 0);
 
     /* Add character to the buffer. */
     *REG_PTR(d->vaddr, UART_THR) = c;
@@ -67,9 +66,6 @@ int uart_init(const struct dev_defn *defn,
     dev->irqs       = defn->irqs;
     dev->ioops      = *ops;
     dev->flags      = SERIAL_AUTO_CR;
-
-    *REG_PTR(dev->vaddr, 0x8) = 1;
-    *REG_PTR(dev->vaddr, UART_IER) = UART_IER_ERDAI;
 
     return 0;
 }
